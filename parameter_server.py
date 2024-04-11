@@ -19,6 +19,7 @@ class ParameterServer(parameter_server_pb2_grpc.ParameterServerServicer):
         self.dataset_chunksize = 1000
         self.averaged_gradients = None
         self.lock = Lock()
+        self.lock2 = Lock()
 
     # No change needed here, you already log worker registration
     def RegisterWorker(self, request, context):
@@ -56,34 +57,35 @@ class ParameterServer(parameter_server_pb2_grpc.ParameterServerServicer):
             is_end_of_dataset=is_end_of_dataset
         )
 
-    # Log when gradients have been received and processed
     def ReceiveGradients(self, request_iterator, context):
-        gradients_chunks = []
-        worker_id = None
-        training_step = None
-        for request in request_iterator:
-            worker_id = request.worker_id
-            training_step = request.training_step
-            gradients_chunks.append(request.gradients)
-        
-        combined_gradients_bytes = b''.join(gradients_chunks)
-        gradients = deserialize_gradients(combined_gradients_bytes)
-        
-        if worker_id is not None and training_step is not None:
-            self.workers[worker_id]['gradients'] = gradients
-            self.workers[worker_id]['step'] = training_step
+            gradients_chunks = []
+            worker_id = None
+            training_step = None
+            for request in request_iterator:
+                worker_id = request.worker_id
+                training_step = request.training_step
+                gradients_chunks.append(request.gradients)
+            
+            combined_gradients_bytes = b''.join(gradients_chunks)
+            gradients = deserialize_gradients(combined_gradients_bytes)
+            
+            # Use the lock to ensure atomicity of the check-update-clear operation
+            with self.lock:
+                if worker_id is not None and training_step is not None:
+                    self.workers[worker_id]['gradients'] = gradients
+                    self.workers[worker_id]['step'] = training_step
 
-            if all(worker.get('gradients') is not None for worker in self.workers.values()):
-                averaged_gradients = self._average_gradients()
-                self.model.set_gradients(averaged_gradients)
-                self.global_step += 1
-                for worker in self.workers.values():
-                    worker['gradients'] = None
-                print(f"Gradients received and processed from worker {worker_id} at step {training_step}")
-                self.averaged_gradients = averaged_gradients
-                return parameter_server_pb2.GradientsResponse(success=True)
-            else:
-                return parameter_server_pb2.GradientsResponse(success=True)
+                    if all(worker.get('gradients') is not None for worker in self.workers.values()):
+                        averaged_gradients = self._average_gradients()
+                        self.model.set_gradients(averaged_gradients)
+                        self.global_step += 1
+                        for worker in self.workers.values():
+                            worker['gradients'] = None  # Clear gradients after they've been averaged
+                        print(f"Gradients received and processed from worker {worker_id} at step {training_step}")
+                        self.averaged_gradients = averaged_gradients
+                        return parameter_server_pb2.GradientsResponse(success=True)
+                    else:
+                        return parameter_server_pb2.GradientsResponse(success=True)
 
     # Log when starting to distribute averaged gradients
     def DistributeAveragedGradients(self, request, context):
