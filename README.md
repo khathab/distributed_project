@@ -12,4 +12,3 @@ Project for CS4459
 
 - Deliverable:
     - Report description of the problem
-    - 10 minute video explaining solution

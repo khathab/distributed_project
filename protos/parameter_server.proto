@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package distributed_training;
+
+service ParameterServer {
+  rpc RegisterWorker(RegisterWorkerRequest) returns (RegisterWorkerResponse) {}
+  rpc DistributeModelWeights(stream ModelWeightsRequest) returns (stream ModelWeightsResponse) {}
+  rpc DistributeDataset(DatasetRequest) returns (DatasetResponse) {}  
+  rpc ReceiveGradients(stream GradientsRequest) returns (GradientsResponse) {}
+  rpc DistributeAveragedGradients(AveragedGradientsRequest) returns (stream AveragedGradientsResponse) {}
+  rpc RequestNextDatasetPortion(NextDatasetPortionRequest) returns (NextDatasetPortionResponse) {}
+}
+
+message ModelWeightsRequest {
+  string worker_id = 1;
+}
+
+message ModelWeightsResponse {
+  bytes model_weights_chunk = 1;
+  bool is_final_chunk = 2;
+}
+
+message RegisterWorkerRequest {
+  string worker_id = 1;
+  map<string, string> worker_capabilities = 2;
+}
+
+message RegisterWorkerResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message DatasetRequest {
+  string worker_id = 1;
+}
+
+message DatasetResponse {
+  bytes dataset_portion = 1;
+  bool is_end_of_dataset = 2;
+}
+
+message GradientsRequest {
+  string worker_id = 1;
+  bytes gradients = 2;
+  int64 training_step = 3;
+}
+
+message GradientsResponse {
+  bool success = 1;
+}
+
+message AveragedGradientsRequest {
+  int64 training_step = 1;
+}
+
+message AveragedGradientsResponse {
+  bytes averaged_gradients = 1;
+  bool is_final_chunk = 2;
+}
+
+message NextDatasetPortionRequest {
+  string worker_id = 1;
+}
+
+message NextDatasetPortionResponse {
+  bool success = 1;
+  bytes dataset_portion = 2;
+  int32 portion_size = 3;
+  bool is_end_of_dataset = 4;
+}
