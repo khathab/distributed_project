@@ -1,14 +1,17 @@
-# Video Streaming
+# Distributed RPC-based Training/Finetuning of Large Language Models
+## Project for CS4459
 
-Project for CS4459
+## Parameter Server
 
-- Server
-    - Serve different streams
+Storing model Weight
+Assigning workers
+Retrieving Gradients and Averaging Gradients
+Handles Worker Joining and Leaving
+Maintaining Averaged Gradients
+Workers
 
-- Client
-    - Connect to Server
-    - Select video stream
-    - Interpret data somehow
-
-- Deliverable:
-    - Report description of the problem
+## Worker Registration
+Model and Dataset Distribution
+Training
+Transmitting Gradients to Parameter Server
+Update Model Weights
